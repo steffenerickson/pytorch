@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import pathlib
 from dataclasses import dataclass
 from tools.codegen.api import unboxing
 from tools.codegen.api.types import CppSignatureGroup
@@ -148,7 +149,13 @@ def main() -> None:
     parser.add_argument(
         "-d", "--install_dir", help="output directory", default="build/aten/src/ATen"
     )
-
+    parser.add_argument(
+        '-o',
+        '--output-dependencies',
+        help='output a list of dependencies into the given file and exit')
+    parser.add_argument(
+        '--dry-run', action='store_true',
+        help='run without writing any files (still updates outputs)')
     options = parser.parse_args()
 
     native_yaml_path = os.path.join(options.source_path, "native/native_functions.yaml")
@@ -162,12 +169,19 @@ def main() -> None:
 
     def make_file_manager(install_dir: str) -> FileManager:
         return FileManager(
-            install_dir=install_dir, template_dir=template_dir, dry_run=False
+            install_dir=install_dir, template_dir=template_dir, dry_run=options.dry_run
         )
 
     cpu_fm = make_file_manager(options.install_dir)
     gen_unboxing(native_functions=native_functions, cpu_fm=cpu_fm)
 
+    if options.output_dependencies:
+        depfile_path = pathlib.Path(options.output_dependencies).resolve()
+        depfile_name = depfile_path.name
+        depfile_stem = depfile_path.stem
+
+        path = depfile_path.parent / depfile_name
+        cpu_fm.write_outputs(depfile_stem, str(path))
 
 if __name__ == "__main__":
     main()
